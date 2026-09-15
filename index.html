@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
 <title>ОБЛАКА — редактор хромового облака</title>
+<link rel="icon" href="data:,">
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@200;300;400&display=swap" rel="stylesheet">
 <style>
 html,body{height:100%}
@@ -65,14 +66,15 @@ if(!lib)msg('three.js не загрузился ('+why.join(' | ')+'). Пров�
 else main(lib.THREE,lib.MC,lib.GUI);
 
 function main(THREE,MarchingCubes,GUI){
-const P={goo:.75,spin:matchMedia('(prefers-reduced-motion: reduce)').matches?.01:.03,env:'meadow',morph:1,wave:.26,rough:.09,yank:7,back:1.6,rx:.46,ry:.4,rz:.3,room:false};
+const P={goo:.75,spin:matchMedia('(prefers-reduced-motion: reduce)').matches?.01:.03,env:'meadow',morph:1,wave:.26,rough:.09,yank:7,back:1.6,rx:.46,ry:.46,rz:.34,room:false};
 const box=document.getElementById('s'),small=Math.min(innerWidth,innerHeight)<640;
 const R=new THREE.WebGLRenderer({antialias:true,alpha:true});
 R.setPixelRatio(Math.min(devicePixelRatio,2));R.setSize(innerWidth,innerHeight);
 R.toneMapping=THREE.ACESFilmicToneMapping;R.toneMappingExposure=1.15;
 box.appendChild(R.domElement);
 const S=new THREE.Scene(),C=new THREE.PerspectiveCamera(40,innerWidth/innerHeight,.1,80),CT=new THREE.Vector3(0,.08,0);
-let cd=6,ca=.6,cp=.28,playing=false;
+let cd=6.3,ca=.6,cp=.28,playing=false;
+const sz=document.getElementById('sz'),bP=document.getElementById('bPlay');
 
 /* отражения */
 const CL=[[200,320,95],[680,390,70],[1130,280,115],[1640,370,84],[1920,320,92],[410,450,60],[920,440,66],[1390,470,56],[80,400,72],[1230,340,60]];
@@ -93,31 +95,36 @@ let env=null;
 function setEnv(k){if(env)env.dispose();env=new THREE.CanvasTexture(paint(k));env.mapping=THREE.EquirectangularReflectionMapping;env.colorSpace=THREE.SRGBColorSpace;S.environment=env}
 setEnv('meadow');
 const mat=new THREE.MeshStandardMaterial({color:0xffffff,metalness:1,roughness:P.rough,envMapIntensity:1.4});
-const RES=small?56:80,PER=.13,SX=1.75,SY=1.25,SZ=1.15;
+
+/* поле морфинга: ЕДИНЫЙ масштаб по осям — шары круглые, а не таблетки */
+const RES=small?56:80,PER=.13,S=1.75;
 let SUB=12,bob=.12;
 const ef=new MarchingCubes(RES,mat,false,false,100000);
-ef.scale.set(SX,SY,SZ);ef.position.y=bob;ef.frustumCulled=false;S.add(ef);
+ef.scale.set(S,S,S);ef.position.y=bob;ef.frustumCulled=false;S.add(ef);
+/* радиус шара в долях сетки (граница поля = изоляция 80 + subtract) */
 const rad=b=>Math.sqrt(b.s/(80+SUB));
-const cg=(v,rm,r)=>{let lo=.5-rm+r,hi2=.5+rm-r;if(lo>hi2)return .5;return Math.min(Math.max(v,Math.max(lo,.02)),Math.min(hi2,.98))};
+/* клетка: комната ∩ границы сетки (чтобы шар не резался о край поля) */
+const cg=(v,rm,r)=>{let lo=Math.max(.5-rm,.015)+r,hi2=Math.min(.5+rm,.985)-r;if(lo>hi2)return .5;return Math.min(Math.max(v,lo),hi2)};
 const rb=new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(1,1,1)),new THREE.LineBasicMaterial({color:0x5a7aa0,transparent:true,opacity:.55}));
 rb.visible=false;S.add(rb);
-const roomUpd=()=>{rb.scale.set(P.rx*2*SX,P.ry*2*SY,P.rz*2*SZ)};
+const roomUpd=()=>rb.scale.set(4*S*P.rx,4*S*P.ry,4*S*P.rz);
 roomUpd();
-const clampB=b=>{const r=rad(b);b.pos.set(cg(b.pos.x,P.rx,r),cg(b.pos.y,P.ry,r),cg(b.pos.z,P.rz,r))};
+const clampB=b=>{const r=Math.min(rad(b),.45);b.pos.set(cg(b.pos.x,P.rx,r),cg(b.pos.y,P.ry,r),cg(b.pos.z,P.rz,r))};
 
 /* шары */
 let B=[],sel=-1;
 function addBall(x,y,z,s){const b={s,ph:[Math.random()*6.28,Math.random()*6.28,Math.random()*6.28],pos:new THREE.Vector3(x,y,z),vel:new THREE.Vector3()};b.a=[x,y,z];clampB(b);B.push(b);sel=B.length-1;sz.value=s;return b}
-function makeCloud(n){B=[];sel=-1;
-const bs=Math.max(3,Math.round(n*.45)),tp=Math.max(0,n-bs-Math.round((n-bs)*.55)),md=n-bs-tp;
-const fr=v=>v-Math.floor(v),rd=(i,k)=>fr(Math.sin(i*127.1+k*311.7)*43758.5453);
-for(let i=0;i<bs;i++){const f=bs==1?.5:i/(bs-1);addBall(.3+.4*f,.435+(rd(i,4)-.5)*.02,.5+(rd(i,5)-.5)*.08,2.5-1.1*Math.abs(f-.5)*2)}
-for(let i=0;i<md;i++){const f=md==1?.5:i/(md-1);addBall(.36+.28*f,.545+(rd(i,6)-.5)*.02,.5+(rd(i,7)-.5)*.1,1.5-.4*Math.abs(f-.5)*2)}
-for(let i=0;i<tp;i++)addBall(.42+.16*(tp==1?.5:i/(tp-1)),.635-i*.015,.5+(rd(i,8)-.5)*.06,.85-.12*i);
+/* демо-облако: сферы ярусами, касаются друг друга — «молекула» из логотипа */
+function makeCloud(){B=[];sel=-1;
+[[.183,.317,.42,1.62],[.394,.320,.55,1.85],[.606,.316,.45,1.85],[.817,.321,.58,1.58],
+[.283,.462,.48,1.22],[.500,.464,.52,1.38],[.717,.459,.46,1.22],
+[.440,.598,.50,.92],[.560,.595,.50,.92],
+[.500,.726,.50,.68],
+[.160,.335,.26,.75],[.840,.338,.74,.75]
+].forEach(a=>addBall(a[0],a[1],a[2],a[3]));
 sel=-1}
-makeCloud(12);
+makeCloud();
 
-/* маркер выбранного шара */
 const giz=new THREE.Mesh(new THREE.IcosahedronGeometry(1,1),new THREE.MeshBasicMaterial({color:0x6fb4ff,wireframe:true,transparent:true,opacity:.8}));
 giz.visible=false;S.add(giz);
 
@@ -138,7 +145,7 @@ ef.update()}
 
 /* кольца, пыль, свет */
 const rg=[];
-[[1.6,.4,-.18,.5,.09],[1.85,-.52,.3,.35,-.06],[2.05,1,.18,.22,.04]].forEach(([r,tx,tz,o,sp])=>{
+[[1.95,.4,-.18,.5,.09],[2.25,-.52,.3,.35,-.06],[2.55,1,.18,.22,.04]].forEach(([r,tx,tz,o,sp])=>{
 const l=new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(new THREE.EllipseCurve(0,0,r,r).getPoints(160)),new THREE.LineBasicMaterial({color:0xc9d2da,transparent:true,opacity:o,blending:THREE.AdditiveBlending,depthWrite:false}));
 l.rotation.x=Math.PI/2;const g=new THREE.Group();g.add(l);g.rotation.set(tx,Math.random()*6.28,tz);g.position.copy(CT);g.userData.sp=sp;S.add(g);rg.push(g)});
 const dp=new Float32Array(660);
@@ -172,7 +179,7 @@ sel=-1;gui.controllersRecursive().forEach(c=>c.updateDisplay())
 /* панель */
 const gui=new GUI({title:'ПАРАМЕТРЫ'});gui.domElement.style.width='262px';
 const fE=gui.addFolder('Редактор шаров');
-fE.add({f(){makeCloud(12)}},'f').name('→ Демо-облако');
+fE.add({f(){makeCloud()}},'f').name('→ Демо-облако');
 fE.add({f(){B=[];sel=-1}},'f').name('→ Очистить');
 fE.add(P,'goo',.1,1).name('Тянучесть').onChange(v=>SUB=30-24*v);
 const fS=gui.addFolder('Симуляция');
@@ -196,9 +203,8 @@ if(small)gui.close();
 if(window.OBLAKA_PRESET)applyPreset(JSON.stringify(window.OBLAKA_PRESET));
 
 /* тулбар */
-const $=id=>document.getElementById(id),sz=$('sz'),bP=$('bPlay');
- $('bAdd').onclick=()=>addBall(.5+(Math.random()-.5)*.24,.5+(Math.random()-.5)*.12,.5+(Math.random()-.5)*.24,+sz.value);
- $('bDel').onclick=()=>{if(sel>=0)B.splice(sel,1);else B.pop();sel=-1;giz.visible=false};
+document.getElementById('bAdd').onclick=()=>addBall(.5+(Math.random()-.5)*.24,.46+(Math.random()-.5)*.12,.5+(Math.random()-.5)*.24,+sz.value);
+document.getElementById('bDel').onclick=()=>{if(sel>=0)B.splice(sel,1);else B.pop();sel=-1;giz.visible=false};
 bP.onclick=()=>setPlay(!playing);
 function setPlay(on){playing=on;bP.textContent=on?'■ СТОП':'▶ ПУСК';bP.classList.toggle('on',on);
 for(const b of B){b.a=[b.pos.x,b.pos.y,b.pos.z];b.vel.set(0,0,0)}giz.visible=false}
@@ -206,9 +212,9 @@ for(const b of B){b.a=[b.pos.x,b.pos.y,b.pos.z];b.vel.set(0,0,0)}giz.visible=fal
 /* мышь */
 const ray=new THREE.Raycaster(),ndc=new THREE.Vector2(),lst=new THREE.Vector2();
 const v1=new THREE.Vector3(),v2=new THREE.Vector3(),v3=new THREE.Vector3(),v4=new THREE.Vector3(),vd=new THREE.Vector3(),vg=new THREE.Vector3(),dv=new THREE.Vector3(),hi=new THREE.Vector3(),pl=new THREE.Plane();
-const W=b=>v3.set((b.pos.x*2-1)*SX,(b.pos.y*2-1)*SY+bob,(b.pos.z*2-1)*SZ);
+const W=b=>v3.set((b.pos.x*2-1)*S,(b.pos.y*2-1)*S+bob,(b.pos.z*2-1)*S);
 const setN=e=>ndc.set(e.clientX/innerWidth*2-1,-(e.clientY/innerHeight)*2+1);
-function hitBall(){let h=-1,bd=1e9;for(let i=0;i<B.length;i++){W(B[i]);const d=ray.ray.distanceToPoint(v3),wr=rad(B[i])*2*SX+.14;if(d<wr&&d<bd){bd=d;h=i}}return h}
+function hitBall(){let h=-1,bd=1e9;for(let i=0;i<B.length;i++){W(B[i]);const d=ray.ray.distanceToPoint(v3),wr=rad(B[i])*2*S+.14;if(d<wr&&d<bd){bd=d;h=i}}return h}
 let hv=false,pr=false,rot=false,yk=false,gb=-1;
 R.domElement.addEventListener('pointerdown',e=>{
 pr=true;setN(e);lst.copy(ndc);hv=true;ray.setFromCamera(ndc,C);
@@ -220,28 +226,28 @@ setN(e);if(!hv){lst.copy(ndc);hv=true;return}
 const dx=ndc.x-lst.x,dy=ndc.y-lst.y;lst.copy(ndc);
 if(Math.abs(dx)+Math.abs(dy)<1e-6)return;
 ray.setFromCamera(ndc,C);
-if(gb>=0){const b=B[gb];W(b);camera:{C.getWorldDirection(v4);pl.setFromNormalAndCoplanarPoint(v4,v3);if(ray.ray.intersectPlane(pl,hi)){const r=rad(b);b.pos.set(cg(hi.x/(2*SX)+.5,P.rx,r),cg((hi.y-bob)/(2*SY)+.5,P.ry,r),cg(hi.z/(2*SZ)+.5,P.rz,r))}}return}
+if(gb>=0){const b=B[gb];W(b);C.getWorldDirection(v4);pl.setFromNormalAndCoplanarPoint(v4,v3);
+if(ray.ray.intersectPlane(pl,hi)){const r=Math.min(rad(b),.3);b.pos.set(cg(hi.x/(2*S)+.5,P.rx,r),cg((hi.y-bob)/(2*S)+.5,P.ry,r),cg(hi.z/(2*S)+.5,P.rz,r))}return}
 if(rot){ca-=dx*2.6;cp=Math.min(1.35,Math.max(-.2,cp+dy*1.8));return}
 if(!playing)return;
-/* рывок шаров (сильно при нажатии, мягко при проводке) */
 const ds=C.position.distanceTo(CT),vh=2*Math.tan(C.fov*Math.PI/360)*ds,vw=vh*C.aspect;
 v1.setFromMatrixColumn(C.matrixWorld,0);v2.setFromMatrixColumn(C.matrixWorld,1);
 vd.copy(v1).multiplyScalar(dx*vw*.5).addScaledVector(v2,dy*vh*.5);
-vg.set(vd.x/(2*SX),vd.y/(2*SY),vd.z/(2*SZ));
+vg.set(vd.x/(2*S),vd.y/(2*S),vd.z/(2*S));
 const K=yk?P.yank:P.yank*.28,mv=vd.length();
 for(const b of B){
 W(b);const d=ray.ray.distanceToPoint(v3);if(d>.95)continue;
 let w=1-d/.95;w*=w;b.vel.addScaledVector(vg,w*K);
 ray.ray.closestPointToPoint(v3,v4);dv.copy(v3).sub(v4);
 const L2=dv.length();
-if(L2>1e-4){const k2=w*mv*(yk?.5:.18)/L2;b.vel.x+=k2*dv.x/(2*SX);b.vel.y+=k2*dv.y/(2*SY);b.vel.z+=k2*dv.z/(2*SZ)}}});
+if(L2>1e-4){const k2=w*mv*(yk?.5:.18)/L2;b.vel.x+=k2*dv.x/(2*S);b.vel.y+=k2*dv.y/(2*S);b.vel.z+=k2*dv.z/(2*S)}}});
 addEventListener('pointerup',()=>{pr=false;rot=false;yk=false;gb=-1});
 addEventListener('pointercancel',()=>{pr=false;rot=false;yk=false;gb=-1});
 R.domElement.addEventListener('dblclick',e=>{
 setN(e);ray.setFromCamera(ndc,C);
 if(!playing){if(hitBall()<0){C.getWorldDirection(v4);pl.setFromNormalAndCoplanarPoint(v4,CT);
-if(ray.ray.intersectPlane(pl,hi))addBall(cg(hi.x/(2*SX)+.5,P.rx,.02),cg((hi.y-bob)/(2*SY)+.5,P.ry,.02),cg(hi.z/(2*SZ)+.5,P.rz,.02),+sz.value)}}
-else for(const b of B){dv.set(b.pos.x-.5,b.pos.y-.52,b.pos.z-.5);const L2=dv.length();if(L2>1e-4)dv.multiplyScalar(1/L2);else dv.set(0,1,0);b.vel.addScaledVector(dv,.55);b.vel.y+=.28}});
+if(ray.ray.intersectPlane(pl,hi))addBall(cg(hi.x/(2*S)+.5,P.rx,.02),cg((hi.y-bob)/(2*S)+.5,P.ry,.02),cg(hi.z/(2*S)+.5,P.rz,.02),+sz.value)}}
+else for(const b of B){dv.set(b.pos.x-.5,b.pos.y-.46,b.pos.z-.5);const L2=dv.length();if(L2>1e-4)dv.multiplyScalar(1/L2);else dv.set(0,1,0);b.vel.addScaledVector(dv,.55);b.vel.y+=.28}});
 R.domElement.addEventListener('wheel',e=>{cd=THREE.MathUtils.clamp(cd+e.deltaY*.004,3.8,9)},{passive:true});
 sz.addEventListener('input',()=>{if(sel>=0&&B[sel])B[sel].s=+sz.value});
 
@@ -256,7 +262,7 @@ else bob=.12;
 ef.position.y=bob;rb.position.set(0,bob,0);rb.visible=P.room||!playing;
 field();
 rg.forEach(g=>g.rotation.y+=g.userData.sp*dt);
-if(!playing&&sel>=0&&B[sel]){W(B[sel]);giz.position.copy(v3);const r=rad(B[sel])*2*SX*1.15;giz.scale.set(r,r,r);giz.visible=true}else giz.visible=false;
+if(!playing&&sel>=0&&B[sel]){W(B[sel]);giz.position.copy(v3);const r=rad(B[sel])*2*S*1.15;giz.scale.set(r,r,r);giz.visible=true}else giz.visible=false;
 C.position.set(Math.sin(ca)*Math.cos(cp)*cd,CT.y+Math.sin(cp)*cd,Math.cos(ca)*Math.cos(cp)*cd);C.lookAt(CT);
 R.render(S,C);
 if(!ok2){ok2=true;window.ok=true;document.getElementById('e').style.display='none';R.domElement.classList.add('r')}}
