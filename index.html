@@ -96,25 +96,22 @@ function setEnv(k){if(env)env.dispose();env=new THREE.CanvasTexture(paint(k));en
 setEnv('meadow');
 const mat=new THREE.MeshStandardMaterial({color:0xffffff,metalness:1,roughness:P.rough,envMapIntensity:1.4});
 
-/* поле морфинга: ЕДИНЫЙ масштаб по осям — шары круглые, а не таблетки */
-const RES=small?56:80,PER=.13,S=1.75;
+/* поле морфинга: единый масштаб SC — шары круглые */
+const RES=small?56:80,PER=.13,SC=1.75;
 let SUB=12,bob=.12;
 const ef=new MarchingCubes(RES,mat,false,false,100000);
-ef.scale.set(S,S,S);ef.position.y=bob;ef.frustumCulled=false;S.add(ef);
-/* радиус шара в долях сетки (граница поля = изоляция 80 + subtract) */
+ef.scale.set(SC,SC,SC);ef.position.y=bob;ef.frustumCulled=false;S.add(ef);
 const rad=b=>Math.sqrt(b.s/(80+SUB));
-/* клетка: комната ∩ границы сетки (чтобы шар не резался о край поля) */
 const cg=(v,rm,r)=>{let lo=Math.max(.5-rm,.015)+r,hi2=Math.min(.5+rm,.985)-r;if(lo>hi2)return .5;return Math.min(Math.max(v,lo),hi2)};
 const rb=new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(1,1,1)),new THREE.LineBasicMaterial({color:0x5a7aa0,transparent:true,opacity:.55}));
 rb.visible=false;S.add(rb);
-const roomUpd=()=>rb.scale.set(4*S*P.rx,4*S*P.ry,4*S*P.rz);
+const roomUpd=()=>rb.scale.set(4*SC*P.rx,4*SC*P.ry,4*SC*P.rz);
 roomUpd();
 const clampB=b=>{const r=Math.min(rad(b),.45);b.pos.set(cg(b.pos.x,P.rx,r),cg(b.pos.y,P.ry,r),cg(b.pos.z,P.rz,r))};
 
 /* шары */
 let B=[],sel=-1;
 function addBall(x,y,z,s){const b={s,ph:[Math.random()*6.28,Math.random()*6.28,Math.random()*6.28],pos:new THREE.Vector3(x,y,z),vel:new THREE.Vector3()};b.a=[x,y,z];clampB(b);B.push(b);sel=B.length-1;sz.value=s;return b}
-/* демо-облако: сферы ярусами, касаются друг друга — «молекула» из логотипа */
 function makeCloud(){B=[];sel=-1;
 [[.183,.317,.42,1.62],[.394,.320,.55,1.85],[.606,.316,.45,1.85],[.817,.321,.58,1.58],
 [.283,.462,.48,1.22],[.500,.464,.52,1.38],[.717,.459,.46,1.22],
@@ -212,9 +209,9 @@ for(const b of B){b.a=[b.pos.x,b.pos.y,b.pos.z];b.vel.set(0,0,0)}giz.visible=fal
 /* мышь */
 const ray=new THREE.Raycaster(),ndc=new THREE.Vector2(),lst=new THREE.Vector2();
 const v1=new THREE.Vector3(),v2=new THREE.Vector3(),v3=new THREE.Vector3(),v4=new THREE.Vector3(),vd=new THREE.Vector3(),vg=new THREE.Vector3(),dv=new THREE.Vector3(),hi=new THREE.Vector3(),pl=new THREE.Plane();
-const W=b=>v3.set((b.pos.x*2-1)*S,(b.pos.y*2-1)*S+bob,(b.pos.z*2-1)*S);
+const W=b=>v3.set((b.pos.x*2-1)*SC,(b.pos.y*2-1)*SC+bob,(b.pos.z*2-1)*SC);
 const setN=e=>ndc.set(e.clientX/innerWidth*2-1,-(e.clientY/innerHeight)*2+1);
-function hitBall(){let h=-1,bd=1e9;for(let i=0;i<B.length;i++){W(B[i]);const d=ray.ray.distanceToPoint(v3),wr=rad(B[i])*2*S+.14;if(d<wr&&d<bd){bd=d;h=i}}return h}
+function hitBall(){let h=-1,bd=1e9;for(let i=0;i<B.length;i++){W(B[i]);const d=ray.ray.distanceToPoint(v3),wr=rad(B[i])*2*SC+.14;if(d<wr&&d<bd){bd=d;h=i}}return h}
 let hv=false,pr=false,rot=false,yk=false,gb=-1;
 R.domElement.addEventListener('pointerdown',e=>{
 pr=true;setN(e);lst.copy(ndc);hv=true;ray.setFromCamera(ndc,C);
@@ -227,26 +224,26 @@ const dx=ndc.x-lst.x,dy=ndc.y-lst.y;lst.copy(ndc);
 if(Math.abs(dx)+Math.abs(dy)<1e-6)return;
 ray.setFromCamera(ndc,C);
 if(gb>=0){const b=B[gb];W(b);C.getWorldDirection(v4);pl.setFromNormalAndCoplanarPoint(v4,v3);
-if(ray.ray.intersectPlane(pl,hi)){const r=Math.min(rad(b),.3);b.pos.set(cg(hi.x/(2*S)+.5,P.rx,r),cg((hi.y-bob)/(2*S)+.5,P.ry,r),cg(hi.z/(2*S)+.5,P.rz,r))}return}
+if(ray.ray.intersectPlane(pl,hi)){const r=Math.min(rad(b),.3);b.pos.set(cg(hi.x/(2*SC)+.5,P.rx,r),cg((hi.y-bob)/(2*SC)+.5,P.ry,r),cg(hi.z/(2*SC)+.5,P.rz,r))}return}
 if(rot){ca-=dx*2.6;cp=Math.min(1.35,Math.max(-.2,cp+dy*1.8));return}
 if(!playing)return;
 const ds=C.position.distanceTo(CT),vh=2*Math.tan(C.fov*Math.PI/360)*ds,vw=vh*C.aspect;
 v1.setFromMatrixColumn(C.matrixWorld,0);v2.setFromMatrixColumn(C.matrixWorld,1);
 vd.copy(v1).multiplyScalar(dx*vw*.5).addScaledVector(v2,dy*vh*.5);
-vg.set(vd.x/(2*S),vd.y/(2*S),vd.z/(2*S));
+vg.set(vd.x/(2*SC),vd.y/(2*SC),vd.z/(2*SC));
 const K=yk?P.yank:P.yank*.28,mv=vd.length();
 for(const b of B){
 W(b);const d=ray.ray.distanceToPoint(v3);if(d>.95)continue;
 let w=1-d/.95;w*=w;b.vel.addScaledVector(vg,w*K);
 ray.ray.closestPointToPoint(v3,v4);dv.copy(v3).sub(v4);
 const L2=dv.length();
-if(L2>1e-4){const k2=w*mv*(yk?.5:.18)/L2;b.vel.x+=k2*dv.x/(2*S);b.vel.y+=k2*dv.y/(2*S);b.vel.z+=k2*dv.z/(2*S)}}});
+if(L2>1e-4){const k2=w*mv*(yk?.5:.18)/L2;b.vel.x+=k2*dv.x/(2*SC);b.vel.y+=k2*dv.y/(2*SC);b.vel.z+=k2*dv.z/(2*SC)}}});
 addEventListener('pointerup',()=>{pr=false;rot=false;yk=false;gb=-1});
 addEventListener('pointercancel',()=>{pr=false;rot=false;yk=false;gb=-1});
 R.domElement.addEventListener('dblclick',e=>{
 setN(e);ray.setFromCamera(ndc,C);
 if(!playing){if(hitBall()<0){C.getWorldDirection(v4);pl.setFromNormalAndCoplanarPoint(v4,CT);
-if(ray.ray.intersectPlane(pl,hi))addBall(cg(hi.x/(2*S)+.5,P.rx,.02),cg((hi.y-bob)/(2*S)+.5,P.ry,.02),cg(hi.z/(2*S)+.5,P.rz,.02),+sz.value)}}
+if(ray.ray.intersectPlane(pl,hi))addBall(cg(hi.x/(2*SC)+.5,P.rx,.02),cg((hi.y-bob)/(2*SC)+.5,P.ry,.02),cg(hi.z/(2*SC)+.5,P.rz,.02),+sz.value)}}
 else for(const b of B){dv.set(b.pos.x-.5,b.pos.y-.46,b.pos.z-.5);const L2=dv.length();if(L2>1e-4)dv.multiplyScalar(1/L2);else dv.set(0,1,0);b.vel.addScaledVector(dv,.55);b.vel.y+=.28}});
 R.domElement.addEventListener('wheel',e=>{cd=THREE.MathUtils.clamp(cd+e.deltaY*.004,3.8,9)},{passive:true});
 sz.addEventListener('input',()=>{if(sel>=0&&B[sel])B[sel].s=+sz.value});
@@ -262,7 +259,7 @@ else bob=.12;
 ef.position.y=bob;rb.position.set(0,bob,0);rb.visible=P.room||!playing;
 field();
 rg.forEach(g=>g.rotation.y+=g.userData.sp*dt);
-if(!playing&&sel>=0&&B[sel]){W(B[sel]);giz.position.copy(v3);const r=rad(B[sel])*2*S*1.15;giz.scale.set(r,r,r);giz.visible=true}else giz.visible=false;
+if(!playing&&sel>=0&&B[sel]){W(B[sel]);giz.position.copy(v3);const r=rad(B[sel])*2*SC*1.15;giz.scale.set(r,r,r);giz.visible=true}else giz.visible=false;
 C.position.set(Math.sin(ca)*Math.cos(cp)*cd,CT.y+Math.sin(cp)*cd,Math.cos(ca)*Math.cos(cp)*cd);C.lookAt(CT);
 R.render(S,C);
 if(!ok2){ok2=true;window.ok=true;document.getElementById('e').style.display='none';R.domElement.classList.add('r')}}
